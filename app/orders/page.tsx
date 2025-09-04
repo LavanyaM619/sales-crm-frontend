@@ -35,17 +35,12 @@ export default function OrdersPage() {
     endDate: '',
   });
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    fetchOrders();
-  }, [filters]);
+  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => { fetchOrders(); }, [filters]);
 
   const fetchCategories = async () => {
     try {
-      const data = await categoryAPI.getAll();
+      const data: Category[] = await categoryAPI.getAll();
       setCategories(data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -56,7 +51,7 @@ export default function OrdersPage() {
     setLoading(true);
     try {
       const response = await orderAPI.getAll(filters);
-      setOrders(response.data);
+      setOrders(response.data as Order[]);
       setTotal(response.total || 0);
       setTotalPages(Math.ceil((response.total || 0) / (filters.pageSize || 10)));
       setCurrentPage(filters.page || 1);
@@ -68,38 +63,32 @@ export default function OrdersPage() {
   };
 
   const handleDelete = async (id: string, customer: string) => {
-    if (window.confirm(`Are you sure you want to delete order for "${customer}"?`)) {
-      try {
-        await orderAPI.delete(id);
-        toast.success('Order deleted successfully');
-        fetchOrders();
-      } catch (error) {
-        toast.error('Failed to delete order');
-      }
+    if (!window.confirm(`Are you sure you want to delete order for "${customer}"?`)) return;
+    try {
+      await orderAPI.delete(id);
+      toast.success('Order deleted successfully');
+      fetchOrders();
+    } catch (error) {
+      toast.error('Failed to delete order');
     }
   };
 
   const handleExport = async () => {
     try {
-      const response = await orderAPI.getAll(filters); // fetch latest data for export
-      const formattedData = response.data.map(order => ({
-        ...order,
-        amount: parseFloat(order.amount.toString()).toFixed(2),
-      }));
+      const response = await orderAPI.getAll(filters);
+      const data: Order[] = response.data;
 
       const csvContent = [
         ['Order ID', 'Customer', 'Category', 'Date', 'Source', 'Amount'],
-        ...formattedData.map(order => [
+        ...data.map(order => [
           order.orderId,
           order.customer,
           getCategoryName(order.category),
           format(new Date(order.date), 'yyyy-MM-dd'),
           order.source,
-          order.amount
+          parseFloat(order.amount.toString()).toFixed(2), // string for CSV
         ])
-      ]
-        .map(e => e.join(','))
-        .join('\n');
+      ].map(row => row.join(',')).join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
@@ -118,11 +107,7 @@ export default function OrdersPage() {
   };
 
   const handleFilterChange = (key: keyof OrderFilters, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value,
-      page: 1
-    }));
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const handlePageChange = (page: number) => {
@@ -149,12 +134,10 @@ export default function OrdersPage() {
               <div className="h-10 bg-gray-200 rounded w-1/3"></div>
             </div>
             <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                  ))}
-                </div>
+              <div className="px-4 py-5 sm:p-6 space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                ))}
               </div>
             </div>
           </div>
@@ -195,8 +178,7 @@ export default function OrdersPage() {
           <div className="bg-white shadow rounded-lg mb-6">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                <Filter className="h-5 w-5 mr-2" />
-                Filters
+                <Filter className="h-5 w-5 mr-2" /> Filters
               </h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
@@ -222,8 +204,8 @@ export default function OrdersPage() {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm"
                   >
                     <option value="">All Categories</option>
-                    {categories.map((category) => (
-                      <option key={category._id} value={category._id}>{category.name}</option>
+                    {categories.map(cat => (
+                      <option key={cat._id} value={cat._id}>{cat.name}</option>
                     ))}
                   </select>
                 </div>
@@ -252,24 +234,6 @@ export default function OrdersPage() {
           {/* Orders Table */}
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-4 py-5 sm:p-6">
-              {/* Table Header */}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Orders ({total.toLocaleString()})</h3>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-500">Page size:</span>
-                  <select
-                    value={filters.pageSize || 10}
-                    onChange={(e) => handleFilterChange('pageSize', parseInt(e.target.value))}
-                    className="text-sm border border-gray-300 rounded-md px-2 py-1"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-              </div>
-
               {orders.length === 0 ? (
                 <div className="text-center py-12">
                   <ShoppingCart className="mx-auto h-12 w-12 text-gray-400" />
@@ -286,127 +250,73 @@ export default function OrdersPage() {
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {orders.map(order => (
+                        <tr key={order._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderId}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategoryName(order.category)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{format(new Date(order.date), 'MMM d, yyyy')}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {order.source}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            Rs {parseFloat(order.amount.toString()).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <Link href={`/orders/${order._id}`} className="text-gray-400 hover:text-gray-500"><Eye className="h-4 w-4" /></Link>
+                              <Link href={`/orders/${order._id}/edit`} className="text-gray-400 hover:text-blue-500"><Edit className="h-4 w-4" /></Link>
+                              <button onClick={() => handleDelete(order._id, order.customer)} className="text-gray-400 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {orders.map((order) => (
-                          <tr key={order._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderId}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategoryName(order.category)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{format(new Date(order.date), 'MMM d, yyyy')}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {order.source}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              Rs {parseFloat(order.amount.toString()).toFixed(2)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex space-x-2">
-                                <Link href={`/orders/${order._id}`} className="text-gray-400 hover:text-gray-500">
-                                  <Eye className="h-4 w-4" />
-                                </Link>
-                                <Link href={`/orders/${order._id}/edit`} className="text-gray-400 hover:text-blue-500">
-                                  <Edit className="h-4 w-4" />
-                                </Link>
-                                <button onClick={() => handleDelete(order._id, order.customer)} className="text-gray-400 hover:text-red-500">
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
                       <div className="flex-1 flex justify-between sm:hidden">
-                        <button
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Previous
-                        </button>
-                        <button
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Next
-                        </button>
+                        <button onClick={() => handlePageChange(currentPage-1)} disabled={currentPage===1} className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                        <button onClick={() => handlePageChange(currentPage+1)} disabled={currentPage===totalPages} className="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
                       </div>
                       <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                         <div>
                           <p className="text-sm text-gray-700">
-                            Showing{' '}
-                            <span className="font-medium">
-                              {((currentPage - 1) * (filters.pageSize || 10)) + 1}
-                            </span>{' '}
-                            to{' '}
-                            <span className="font-medium">
-                              {Math.min(currentPage * (filters.pageSize || 10), total)}
-                            </span>{' '}
-                            of{' '}
-                            <span className="font-medium">{total}</span>{' '}
-                            results
+                            Showing <span className="font-medium">{((currentPage-1)*(filters.pageSize||10))+1}</span> to <span className="font-medium">{Math.min(currentPage*(filters.pageSize||10), total)}</span> of <span className="font-medium">{total}</span> results
                           </p>
                         </div>
                         <div>
                           <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                            <button
-                              onClick={() => handlePageChange(currentPage - 1)}
-                              disabled={currentPage === 1}
-                              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Previous
-                            </button>
+                            <button onClick={() => handlePageChange(currentPage-1)} disabled={currentPage===1} className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
                             {[...Array(totalPages)].map((_, i) => {
-                              const page = i + 1;
-                              return (
-                                <button
-                                  key={page}
-                                  onClick={() => handlePageChange(page)}
-                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                    page === currentPage
-                                      ? 'z-10 bg-primary-50 border-primary-500 text-primary-600'
-                                      : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                  }`}
-                                >
-                                  {page}
-                                </button>
-                              );
+                              const page = i+1;
+                              return <button key={page} onClick={() => handlePageChange(page)} className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${page===currentPage?'z-10 bg-primary-50 border-primary-500 text-primary-600':'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}>{page}</button>
                             })}
-                            <button
-                              onClick={() => handlePageChange(currentPage + 1)}
-                              disabled={currentPage === totalPages}
-                              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Next
-                            </button>
+                            <button onClick={() => handlePageChange(currentPage+1)} disabled={currentPage===totalPages} className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
                           </nav>
                         </div>
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>

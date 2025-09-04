@@ -194,9 +194,9 @@ export default function NewOrderPage() {
       {...register('amount', {
         required: 'Amount is required',
         validate: (value) => {
-          const num = parseFloat(value);
+           const num = parseFloat(value.toString());
           if (isNaN(num)) return 'Amount must be a number';
-          if (num < 1 || num > 10) return 'Amount must be between 1 and 10';
+          if (num > 1) return 'Amount must be more than 1 ';
           return true;
         },
         setValueAs: (v) => parseFloat(v).toFixed(2),
