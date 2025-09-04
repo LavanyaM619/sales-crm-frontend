@@ -5,8 +5,8 @@ export interface User {
   lastname: string;
   email: string;
   role: 'admin' | 'user';
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Category {
@@ -41,11 +41,7 @@ export interface Counter {
 
 export interface AuthResponse {
   token: string;
-  user: {
-    id: string;
-    email: string;
-    role: string;
-  };
+  user: User;
 }
 
 export interface ApiResponse<T> {
@@ -64,4 +60,26 @@ export interface OrderFilters {
   page?: number;
   pageSize?: number;
   search?: string;
+}
+
+export interface NewOrder {
+  customer: string;
+  category: string;
+  date: string;
+  source: string;
+  geo: string;
+  amount: number;
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  name: string;
+  lastname: string;
+  email: string;
+  password: string;
+  role: string;
 }

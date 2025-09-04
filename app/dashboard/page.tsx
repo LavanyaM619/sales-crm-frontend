@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { AuthGuard } from '@/components/AuthGuard';
 import AdminLayout from '@/components/Layout/AdminLayout';
-import { Order } from '@/types';
+import { Order, OrderFilters } from '@/types';
 import { orderAPI } from '@/lib/api';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line, CartesianGrid 
 } from 'recharts';
-import { Calendar, Download, BarChart3, PiggyBank } from 'lucide-react';
+import { Download, BarChart3, PiggyBank } from 'lucide-react';
 
 export default function ReportsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -20,21 +20,22 @@ export default function ReportsPage() {
   }, [dateRange]);
 
   const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const filters = {
-        startDate: dateRange.startDate || undefined,
-        endDate: dateRange.endDate || undefined,
-        pageSize: 1000
-      };
-      const response = await orderAPI.getAll(filters);
-      setOrders(response.data);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  try {
+    const filters: OrderFilters = {
+      startDate: dateRange.startDate || undefined,
+      endDate: dateRange.endDate || undefined,
+      pageSize: 1000
+    };
+    const ordersData = await orderAPI.getAll(filters);
+    setOrders(Array.isArray(ordersData) ? ordersData : []); // ✅ force array
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    setOrders([]); // fallback
+  } finally {
+    setLoading(false);
+  }
+};
 
   const sourceData = Object.entries(
     orders.reduce((acc, order) => {
@@ -109,7 +110,9 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Orders by Source */}
           <div className="bg-white p-5 rounded shadow">
-            <h2 className="text-lg font-medium mb-4 flex items-center"><BarChart3 className="mr-2" /> Orders by Source</h2>
+            <h2 className="text-lg font-medium mb-4 flex items-center">
+              <BarChart3 className="mr-2" /> Orders by Source
+            </h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={sourceData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -121,8 +124,12 @@ export default function ReportsPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Revenue Trend */}
           <div className="bg-white p-5 rounded shadow">
-            <h2 className="text-lg font-medium mb-4 flex items-center"><PiggyBank className="mr-2" /> Revenue Trend</h2>
+            <h2 className="text-lg font-medium mb-4 flex items-center">
+              <PiggyBank className="mr-2" /> Revenue Trend
+            </h2>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={revenueData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />

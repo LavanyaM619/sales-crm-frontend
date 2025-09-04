@@ -19,7 +19,9 @@ interface RegisterForm {
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { register: registerUser, user } = useAuth();
+  const { registerUser, user } = useAuth();
+
+
   const router = useRouter();
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterForm>();
 

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { User, Category, Order, AuthResponse, ApiResponse, OrderFilters } from '@/types';
+import { User, Category, Order, AuthResponse, ApiResponse, OrderFilters, NewOrder } from '@/types';
+
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -97,7 +98,7 @@ export const categoryAPI = {
 };
 
 export const orderAPI = {
-  getAll: async (filters?: OrderFilters) => {
+  getAll: async (filters?: OrderFilters): Promise<Order[]> => {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
@@ -106,31 +107,31 @@ export const orderAPI = {
         }
       });
     }
-    const response = await api.get(`/orders?${params.toString()}`);
+    const response = await api.get<Order[]>(`/orders?${params.toString()}`);
     return response.data;
   },
 
-  getById: async (id: string) => {
-    const response = await api.get(`/orders/${id}`);
+  getById: async (id: string): Promise<Order> => {
+    const response = await api.get<Order>(`/orders/${id}`);
     return response.data;
   },
 
-  create: async (orderData: any) => {
-    const response = await api.post('/orders', orderData);
+  create: async (orderData: NewOrder) => {
+    const response = await api.post<Order>('/orders', orderData); 
     return response.data;
   },
 
-  update: async (id: string, orderData: any) => {
-    const response = await api.put(`/orders/${id}`, orderData);
+  update: async (id: string, orderData: Partial<Order>): Promise<Order> => {
+    const response = await api.put<Order>(`/orders/${id}`, orderData);
     return response.data;
   },
 
-  delete: async (id: string) => {
+  delete: async (id: string): Promise<{ ok: boolean }> => {
     const response = await api.delete(`/orders/${id}`);
     return response.data;
   },
 
-  markViewed: async (id: string) => {
+  markViewed: async (id: string): Promise<{ ok: boolean }> => {
     const response = await api.patch(`/orders/${id}/viewed`);
     return response.data;
   },
@@ -150,6 +151,7 @@ export const orderAPI = {
     return response.data instanceof Blob ? response.data : new Blob([response.data]);
   },
 };
+
 
 
 

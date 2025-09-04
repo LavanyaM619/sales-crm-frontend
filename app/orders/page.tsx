@@ -26,6 +26,7 @@ export default function OrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+
   const [filters, setFilters] = useState<OrderFilters>({
     page: 1,
     pageSize: 10,
@@ -35,38 +36,47 @@ export default function OrdersPage() {
     endDate: '',
   });
 
+  // Fetch categories on mount
   useEffect(() => {
     fetchCategories();
   }, []);
 
+  // Fetch orders when filters change
   useEffect(() => {
     fetchOrders();
   }, [filters]);
 
+  // Fetch categories
   const fetchCategories = async () => {
     try {
       const data = await categoryAPI.getAll();
-      setCategories(data);
+      setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
   };
 
+  // Fetch orders
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await orderAPI.getAll(filters);
-      setOrders(response.data);
-      setTotal(response.total || 0);
-      setTotalPages(Math.ceil((response.total || 0) / (filters.pageSize || 10)));
+      const ordersList = await orderAPI.getAll(filters);
+      const safeOrders = Array.isArray(ordersList) ? ordersList : [];
+      setOrders(safeOrders);
+      setTotal(safeOrders.length);
+      setTotalPages(Math.ceil((safeOrders.length || 0) / (filters.pageSize || 10)));
       setCurrentPage(filters.page || 1);
     } catch (error) {
       toast.error('Failed to fetch orders');
+      setOrders([]);
+      setTotal(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
   };
 
+  // Delete order
   const handleDelete = async (id: string, customer: string) => {
     if (window.confirm(`Are you sure you want to delete order for "${customer}"?`)) {
       try {
@@ -79,22 +89,24 @@ export default function OrdersPage() {
     }
   };
 
+  // Export CSV
   const handleExport = async () => {
     try {
-      const response = await orderAPI.getAll(filters); // fetch latest data for export
-      const formattedData = response.data.map(order => ({
+      const ordersList = await orderAPI.getAll(filters);
+      const safeOrders = Array.isArray(ordersList) ? ordersList : [];
+      const formattedData = safeOrders.map(order => ({
         ...order,
-        amount: parseFloat(order.amount.toString()).toFixed(2),
+        amount: parseFloat(order.amount?.toString() || '0').toFixed(2),
       }));
 
       const csvContent = [
         ['Order ID', 'Customer', 'Category', 'Date', 'Source', 'Amount'],
         ...formattedData.map(order => [
-          order.orderId,
-          order.customer,
+          order.orderId || '',
+          order.customer || '',
           getCategoryName(order.category),
-          format(new Date(order.date), 'yyyy-MM-dd'),
-          order.source,
+          order.date ? format(new Date(order.date), 'yyyy-MM-dd') : '',
+          order.source || '',
           order.amount
         ])
       ]
@@ -143,21 +155,7 @@ export default function OrdersPage() {
     return (
       <AuthGuard>
         <AdminLayout>
-          <div className="animate-pulse">
-            <div className="mb-6">
-              <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-              <div className="h-10 bg-gray-200 rounded w-1/3"></div>
-            </div>
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <p>Loading orders...</p>
         </AdminLayout>
       </AuthGuard>
     );
@@ -254,20 +252,9 @@ export default function OrdersPage() {
             <div className="px-4 py-5 sm:p-6">
               {/* Table Header */}
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Orders ({total.toLocaleString()})</h3>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-500">Page size:</span>
-                  <select
-                    value={filters.pageSize || 10}
-                    onChange={(e) => handleFilterChange('pageSize', parseInt(e.target.value))}
-                    className="text-sm border border-gray-300 rounded-md px-2 py-1"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
+                <h3 className="text-lg font-medium text-gray-900">
+                  Orders ({total.toLocaleString()})
+                </h3>
               </div>
 
               {orders.length === 0 ? (
@@ -301,36 +288,27 @@ export default function OrdersPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {orders.map((order) => (
-                          <tr key={order._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderId}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategoryName(order.category)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{format(new Date(order.date), 'MMM d, yyyy')}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {order.source}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              Rs {parseFloat(order.amount.toString()).toFixed(2)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex space-x-2">
-                                <Link href={`/orders/${order._id}`} className="text-gray-400 hover:text-gray-500">
-                                  <Eye className="h-4 w-4" />
-                                </Link>
-                                <Link href={`/orders/${order._id}/edit`} className="text-gray-400 hover:text-blue-500">
-                                  <Edit className="h-4 w-4" />
-                                </Link>
-                                <button onClick={() => handleDelete(order._id, order.customer)} className="text-gray-400 hover:text-red-500">
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
+  {(orders || []).map((order) => (
+    <tr key={order._id} className="hover:bg-gray-50">
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.orderId}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategoryName(order.category)}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{format(new Date(order.date), 'MMM d, yyyy')}</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {order.source}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        Rs {parseFloat(order.amount?.toString() || '0').toFixed(2)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        {/* Actions */}
+      </td>
+    </tr>
+  ))}
+</tbody>
+
                     </table>
                   </div>
 

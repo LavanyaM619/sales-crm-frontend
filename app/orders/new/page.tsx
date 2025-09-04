@@ -42,21 +42,22 @@ export default function NewOrderPage() {
     }
   };
 
-  const onSubmit = async (data: OrderForm) => {
-    setIsSubmitting(true);
-    try {
-      await orderAPI.create({
-        ...data,
-        amount: parseFloat(data.amount.toString())
-      });
-      toast.success('Order created successfully');
-      router.push('/orders');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create order');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+ const onSubmit = async (data: OrderForm) => {
+  setIsSubmitting(true);
+  try {
+    await orderAPI.create({
+      ...data,
+      amount: parseFloat(data.amount.toString()), // ensure amount is number
+    });
+    toast.success('Order created successfully');
+    router.push('/orders');
+  } catch (error: any) {
+    toast.error(error.response?.data?.message || 'Failed to create order');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   if (loading) {
     return (
@@ -191,16 +192,21 @@ export default function NewOrderPage() {
       <DollarSign className="h-5 w-5 text-gray-400" />
     </div>
     <input
-      {...register('amount', {
-        required: 'Amount is required',
-        validate: (value) => {
-          const num = parseFloat(value);
-          if (isNaN(num)) return 'Amount must be a number';
-          if (num < 1 || num > 10) return 'Amount must be between 1 and 10';
-          return true;
-        },
-        setValueAs: (v) => parseFloat(v).toFixed(2),
-      })}
+ {...register('amount', {
+  required: 'Amount is required',
+  validate: (value: string | number) => {
+    const num = parseFloat(value.toString());
+    if (isNaN(num)) return 'Amount must be a number';
+    if (num < 1 || num > 10) return 'Amount must be between 1 and 10';
+    return true;
+  },
+  setValueAs: (v: string | number) => {
+    const num = parseFloat(v.toString());
+    return isNaN(num) ? 0 : parseFloat(num.toFixed(2));
+  },
+})}
+
+
       type="text"
       inputMode="decimal"
       className="appearance-none rounded-md relative block w-full pl-10 pr-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"

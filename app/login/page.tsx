@@ -26,7 +26,8 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     try {
-      await login(data.email, data.password);
+      // Pass the whole object to login instead of two arguments
+      await login(data); 
       toast.success('Login successful!');
       router.push('/dashboard');
     } catch (error: any) {
